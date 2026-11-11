@@ -701,7 +701,7 @@
           <div class="field"><label for="exam-date">DATE</label><input id="exam-date" name="exam-date" type="date"></div>
         </div>
 
-        <p class="exam-instructions"><strong>Direction:</strong> Read each question carefully. Select the letter of the best answer. Each item is worth 1 point.</p>
+        <p class="exam-instructions"><strong>Direction:</strong> Read each question carefully and select the best answer. The result and explanation will appear immediately after every choice. You may change your answer, then use “Check Score” for your final result. Each item is worth 1 point.</p>
         <div class="quiz-list" id="quiz-list"></div>
 
         <div class="exam-actions">
@@ -871,35 +871,56 @@
       });
     }
 
+    function gradeQuestion(index, showUnanswered = false) {
+      const item = questions[index];
+      const fieldset = form.querySelector(`.question[data-index="${index}"]`);
+      const selected = fieldset.querySelector('input:checked');
+      const feedback = fieldset.querySelector('.feedback');
+      const answerChoice = fieldset.querySelectorAll('.choice')[item.a];
+
+      fieldset.classList.remove('correct', 'incorrect', 'unanswered');
+      fieldset.querySelectorAll('.choice').forEach(choice => choice.classList.remove('is-answer'));
+      feedback.textContent = '';
+
+      if (!selected) {
+        if (showUnanswered) {
+          fieldset.classList.add('unanswered');
+          answerChoice.classList.add('is-answer');
+          feedback.textContent = `Not answered. Correct answer: ${letters[item.a].toUpperCase()}. ${item.e}`;
+        }
+        return {answered: false, correct: false};
+      }
+
+      answerChoice.classList.add('is-answer');
+      if (Number(selected.value) === item.a) {
+        fieldset.classList.add('correct');
+        feedback.textContent = `Correct. ${item.e}`;
+        return {answered: true, correct: true};
+      }
+
+      fieldset.classList.add('incorrect');
+      feedback.textContent = `Incorrect. Correct answer: ${letters[item.a].toUpperCase()}. ${item.e}`;
+      return {answered: true, correct: false};
+    }
+
     form.addEventListener('change', event => {
-      if (event.target.matches('input[type="radio"]')) updateProgress();
+      if (event.target.matches('.question input[type="radio"]')) {
+        const fieldset = event.target.closest('.question');
+        gradeQuestion(Number(fieldset.dataset.index));
+        resultPanel.classList.remove('show');
+        updateProgress();
+      }
     });
 
     form.addEventListener('submit', event => {
       event.preventDefault();
-      clearMarks();
       let score = 0;
       let unanswered = 0;
 
       questions.forEach((item, index) => {
-        const fieldset = form.querySelector(`.question[data-index="${index}"]`);
-        const selected = fieldset.querySelector('input:checked');
-        const feedback = fieldset.querySelector('.feedback');
-        const answerChoice = fieldset.querySelectorAll('.choice')[item.a];
-        answerChoice.classList.add('is-answer');
-
-        if (!selected) {
-          unanswered += 1;
-          fieldset.classList.add('unanswered');
-          feedback.textContent = `Not answered. Correct answer: ${letters[item.a].toUpperCase()}. ${item.e}`;
-        } else if (Number(selected.value) === item.a) {
-          score += 1;
-          fieldset.classList.add('correct');
-          feedback.textContent = `Correct. ${item.e}`;
-        } else {
-          fieldset.classList.add('incorrect');
-          feedback.textContent = `Incorrect. Correct answer: ${letters[item.a].toUpperCase()}. ${item.e}`;
-        }
+        const result = gradeQuestion(index, true);
+        if (!result.answered) unanswered += 1;
+        if (result.correct) score += 1;
       });
 
       const percent = Math.round((score / questions.length) * 100);
